@@ -10,16 +10,18 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ParserConfigurationException, IOException, SAXException {
         String[] columnMapping = {"id", "firstName", "lastName", "country", "age"};
         String fileName = "data.csv";
-        List<Employee> list = parseCSV(columnMapping, fileName);
-        List<Employee> listXML = parseXML("data.xml");
-        //не могу понять причину подчеркивания
-        String json = listToJson(list);
-        writeString(json);
+        List<Employee> listCsv = parseCSV(columnMapping, fileName);
+        List<Employee> listXml = parseXML("data.xml");
+        String jsonCsv = listToJson(listCsv);
+        String jsonXml = listToJson(listXml);
+        writeString(jsonCsv, 1);
+        writeString(jsonXml, 2);
     }
 
     public static List<Employee> parseCSV(String[] columnMapping, String fileName) {
@@ -33,7 +35,6 @@ public class Main {
                     .withMappingStrategy(strategy)
                     .build();
             employee = csv.parse();
-            employee.forEach(System.out::println);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -46,42 +47,46 @@ public class Main {
         return gson.toJson(list);
     }
 
-    public static void writeString(String data) {
+    public static void writeString(String data, int number) {
         try (FileWriter file = new
-                FileWriter("data.json")) {
+                FileWriter("data" + number + ".json")) {
             file.write(data);
             file.flush();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
+
     public static List<Employee> parseXML(String xml) throws ParserConfigurationException, IOException, SAXException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
-        Document doc = builder.parse(new File(xml));
+        Document doc = builder.parse(xml);
         Node root = doc.getDocumentElement();
-
-        List <Employee> xml = read(root);
-        //не могу понять ,почему не верно написал
-        return xml;
+        return read(root);
     }
+
     private static List<Employee> read(Node node) {
+        List<String> textNode = new ArrayList<>();
         NodeList nodeList = node.getChildNodes();
-        List <Employee> xml = new ArrayList<>();
         for (int i = 0; i < nodeList.getLength(); i++) {
             Node node_ = nodeList.item(i);
             if (Node.ELEMENT_NODE == node_.getNodeType()) {
                 Element element = (Element) node_;
-                NamedNodeMap map = element.getAttributes();
-                for (int a = 0; a < map.getLength(); a++) {
-                    String attrName = map.item(a).getNodeName();
-                    String attrValue = map.item(a).getNodeValue();
-                    //что тут надо сделать для записи?
+                String elementText = element.getTextContent();
+                String[] text = elementText.split("\n");
+                for (int j = 0; j < text.length; j++) {
+                    text[j] = text[j].trim();
+                    if (!Objects.equals(text[j], "")) {
+                        textNode.add(text[j]);
+                    }
                 }
-                read(node_);
             }
         }
-        return xml;
+        List<Employee> employee = new ArrayList<>();
+        for (int i = 0; i < textNode.size(); i += 5) {
+            employee.add(new Employee(Long.parseLong(textNode.get(i)), textNode.get(i + 1), textNode.get(i + 2),
+                    textNode.get(i + 3), Integer.parseInt(textNode.get(i + 4))));
+        }
+        return employee;
     }
-
 }
